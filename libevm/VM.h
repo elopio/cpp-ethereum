@@ -76,6 +76,7 @@ private:
 	static void initMetrics();
 	static u256 exp256(u256 _base, u256 _exponent);
 	void copyCode(int);
+	void resizeCodeSpace(size_t _size);
 	const void* const* c_jumpTable = 0;
 	bool m_caseInit = false;
 	

@@ -57,12 +57,19 @@ void VM::copyCode(int _extraBytes)
 	auto extendedSize = m_ext->code.size() + _extraBytes;
 	m_codeSpace.reserve(extendedSize);
 	m_codeSpace = m_ext->code;
-	m_codeSpace.resize(extendedSize);
+	resizeCodeSpace(extendedSize);
+}
+
+void VM::resizeCodeSpace(size_t _size)
+{
+	m_codeSpace.resize(_size);
 	m_code = m_codeSpace.data();
 }
 
 void VM::optimize()
 {
+	copyCode(33);
+
 	size_t pc, nBytes = m_ext->code.size();
 
 	// build a table of jump destinations for use in verifyJumpDest
@@ -70,7 +77,7 @@ void VM::optimize()
 	TRACE_STR(1, "Build JUMPDEST table")
 	for (pc = 0; pc < nBytes; ++pc)
 	{
-		Instruction op = Instruction(m_ext->code[pc]);
+		Instruction op = Instruction(m_code[pc]);
 		TRACE_OP(2, pc, op);
 				
 		// make synthetic ops in user code trigger invalid instruction if run
@@ -81,7 +88,7 @@ void VM::optimize()
 		)
 		{
 			TRACE_OP(1, pc, op);
-			m_ext->code[pc] = (byte)Instruction::BAD;
+			m_code[pc] = (byte)Instruction::BAD;
 		}
 
 		if (op == Instruction::JUMPDEST)
@@ -107,7 +114,7 @@ void VM::optimize()
 		else if (op == Instruction::JUMPV || op == Instruction::JUMPSUBV)
 		{
 			++pc;
-			pc += 4 * m_ext->code[pc];  // number of 4-byte dests followed by table
+			pc += 4 * m_code[pc];  // number of 4-byte dests followed by table
 		}
 		else if (op == Instruction::BEGINSUB)
 		{
@@ -119,9 +126,10 @@ void VM::optimize()
 		}
 #endif
 	}
-	
-	copyCode(pc - nBytes + 33);
 
+	if (pc > nBytes)
+		resizeCodeSpace(m_codeSpace.size() + pc - nBytes);
+	
 #ifdef EVM_DO_FIRST_PASS_OPTIMIZATION
 	
 	#ifdef EVM_USE_CONSTANT_POOL
